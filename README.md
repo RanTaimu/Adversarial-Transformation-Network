@@ -2,8 +2,13 @@
 
 ## Introduction
 
-  A simple implement of an Adversarial Autoencoding ATN(AAE ATN) proposed in [Adversarial Transformation Networks: Learning to Generate Adversarial Examples](https://arxiv.org/abs/1703.09387)
+  A simple implement of an Adversarial Autoencoding ATN(AAE ATN) proposed in [Adversarial Transformation Networks: Learning to Generate Adversarial Examples](https://arxiv.org/abs/1703.09387) using tensorflow.
 
+## Requirements
+
+python 3.5
+tensorflow 1.1.0
+matplotlib (for result visualizing)
 
 ## Usage
 
