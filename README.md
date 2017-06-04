@@ -7,7 +7,9 @@
 ## Requirements
 
 python 3.5
+
 tensorflow 1.1.0
+
 matplotlib (for result visualizing)
 
 ## Usage
