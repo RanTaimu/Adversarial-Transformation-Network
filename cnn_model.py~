@@ -1,0 +1,247 @@
+import tensorflow as tf
+from tensorflow.examples.tutorials.mnist import input_data
+
+
+def weight_variable(shape, name):
+    """
+    利用截尾正态分布初始化一个形状为shape的tensor
+
+    :Returns:
+    初始化后的tensorflow变量
+    """
+    # 截尾正态分布，分布的标准差为stddev
+    # shape是一个一维的tensor: [x1, x2, x3, ...]
+    # 表示输出的tensor的size为 x1 * x2 * x3 * ...
+    initial = tf.truncated_normal(shape, stddev=0.1)
+    return tf.Variable(initial, name=name)
+
+
+def bias_variable(shape, name):
+    """
+    利用constant函数初始化一个形状为shape的tensor
+
+    :Returns:
+    初始化后的tensorflow变量
+    """
+    # 构造一个形状为shape，所有元素的值都为0.1的tensor
+    initial = tf.constant(0.1, shape=shape)
+    return tf.Variable(initial, name=name)
+
+
+def conv2d(x, W):
+    """
+    卷积操作，W为卷积核，x为被卷积的tensor对象
+
+    """
+    # 步长strides必须为 [1, x, y, 1]的形式，x，y分别为水平方向和竖直方向的步长
+    # 原因很好理解，第一维是数据数量，最后一维是通道数1，都不需要指定步长
+    # padding有两种方式：SAME和VALID，SAME会补零，VALID遇到滑动窗口滑不到的数据会自动丢弃
+    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
+
+
+def max_pool_2x2(x):
+    """
+    最大池化操作
+
+    """
+    # ksize和strides差不多，这里是2x2的pooling，所以核的大小是2x2
+    return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
+                          strides=[1, 2, 2, 1], padding='SAME')
+
+
+def build_network_for_mnist(data_x, keep_prob):
+    """
+    构造卷积神经网络的计算图
+
+    :Args:
+        data_x -- 传入的数据, 利用placeholder传入
+        keep_prob -- dropout 中保留的概率, 利用placeholder传入
+
+    :Returns:
+        以最后的softmax作为代表的网络结构.
+    """
+
+    weights = {
+        # 5x5的卷积核，1通道，输出是32通道，也就是说共有32个不同的卷积核
+        'W_conv1': weight_variable([5, 5, 1, 32], name='W_conv1'),
+        # 前一个卷积核的输出是32通道的，那么这里就是32通道的输入，输出64通道的feature map
+        'W_conv2': weight_variable([5, 5, 32, 64], name='W_conv2'),
+        # 经过两次卷积和两次池化，现在每个特征图尺寸都从28x28变为了7x7
+        # （因为卷积步长是1且0 padding了，所以每次卷积之后的大小是不变的，变化发生在两次池化之后）
+        # 现在引入一个1024个神经元的全连接层
+        'W_fc1': weight_variable([7 * 7 * 64, 1024], name='W_fc1'),
+        'W_fc2': weight_variable([1024, 10], name='W_fc2')
+    }
+
+    biases = {
+        # 每一个输出通道都有一个对应的偏置项
+        'b_conv1': bias_variable([32], name='b_conv1'),
+        'b_conv2': bias_variable([64], name='b_conv2'),
+        'b_fc1': bias_variable([1024], name='b_fc1'),
+        'b_fc2': bias_variable([10], name='b_fc2')
+    }
+
+    # 读取的mnist图片数据原本是[None, 784]的数据，这里需要reshape一下
+    x_image = tf.reshape(data_x, [-1, 28, 28, 1])
+
+    #
+    # 第一层卷积
+    #
+
+    # 常规的卷积，加偏置，用激活函数处理
+    h_conv1 = tf.nn.relu(
+        conv2d(x_image, weights['W_conv1']) + biases['b_conv1'])
+    # 最后进行max pooling
+    h_pool1 = max_pool_2x2(h_conv1)
+
+    #
+    # 第二层卷积
+    #
+
+    h_conv2 = tf.nn.relu(
+        conv2d(h_pool1, weights['W_conv2']) + biases['b_conv2'])
+    h_pool2 = max_pool_2x2(h_conv2)
+
+    #
+    # 全连接层
+    #
+
+    # 首先把[None, 7, 7, 64]的feature map张成向量，方便利用矩阵乘法实现全连接操作
+    h_pool2_flat = tf.reshape(h_pool2, [-1, 7*7*64])
+    # 然后利用简单的矩阵乘法完成全连接层的设计
+    h_fc1 = tf.nn.relu(
+        tf.matmul(h_pool2_flat, weights['W_fc1']) + biases['b_fc1'])
+
+    #
+    # Dropout，减少过拟合
+    #
+
+    h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
+
+    #
+    # 输出层就是softmax层，和前面的softmax回归一样
+    #
+
+    h_fc2 = tf.matmul(h_fc1_drop, weights['W_fc2']) + biases['b_fc2']
+    y_conv = tf.nn.softmax(h_fc2)
+
+    return y_conv, weights, biases
+
+
+def train(train_set='MNIST_data/', save_path=''):
+    """
+    训练网络参数
+
+    :Args:
+        train_set -- mnist训练数据存放路径
+        save_path -- 如果非空, 表示需要保存训练的网络
+
+    :Returns:
+        训练完毕的模型
+    """
+    mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+
+    # 先定义占位符，再构造计算图
+    x = tf.placeholder(tf.float32, [None, 784])
+    y_ = tf.placeholder(tf.float32, [None, 10])
+    # 控制dropout比例
+    keep_prob = tf.placeholder("float")
+
+    # 获得网络结构
+    model, weights, biases = build_network_for_mnist(x, keep_prob)
+    # 交叉熵作为loss函数
+    cross_entropy = -tf.reduce_sum(y_ * tf.log(model))
+    # 使用Adam算法进行梯度下降训练
+    train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+
+    # 构造精度评估的计算图
+    correct_prediction = tf.equal(tf.argmax(model, 1), tf.argmax(y_, 1))
+    accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+
+    # 开始训练
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+
+        for i in range(10000):
+            batch = mnist.train.next_batch(50)
+
+            train_step.run(feed_dict={
+                x: batch[0], y_: batch[1], keep_prob: 0.5
+            })
+
+            if i % 1000 == 0:
+                train_accuracy = accuracy.eval(feed_dict={
+                    x: batch[0], y_: batch[1], keep_prob: 1.0
+                })
+                print("step %d, training accuracy %g" % (i, train_accuracy))
+
+        print("Train completed.")
+        if save_path != '':
+            saver = tf.train.Saver(dict(weights, **biases))
+            save_file = save_path + '/mnistCnn.ckpt'
+            saver.save(sess, save_file)
+            print('Trained model has been saved to ' + save_file)
+
+    return model
+
+
+def load_model(model, params_dict, saved_params_dir, sess):
+    """
+    读取训练好的模型
+
+    :Args:
+        model            -- 建立完毕的模型
+        saved_params_dir -- 保存的模型参数的路径
+    """
+    saver = tf.train.Saver()
+    # 注意如果在这之后调用了global_variables_initializer
+    # 数据就会被洗掉, 所以确保初始化之后才能读取.
+    saver.restore(sess, saved_params_dir+'/mnistCnn.ckpt')
+
+
+def test_model(model, test_data_holder, keep_prob,
+               test_data, labels, sess):
+    """
+    测试模型的分类能力
+    """
+    y_ = tf.placeholder(tf.float32, [None, 10])
+
+    correct_prediction = tf.equal(tf.argmax(model, 1), tf.argmax(y_, 1))
+    accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+
+    print("test accuracy %g" % accuracy.eval(feed_dict={
+        test_data_holder: test_data,
+        y_: labels, keep_prob: 1.0
+    }))
+
+
+def test(model, images, sess):
+    """
+    判别一个图片列表的类型.
+
+    :Args:
+        model -- cnn模型
+        images -- 输入图像列表, 形状为[None, 784]
+    """
+
+
+def run():
+    #model = train(save_path='./TrainedModels')
+    #return
+
+    mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+    x = tf.placeholder(tf.float32, [None, 784])
+    keep_prob = tf.placeholder("float")
+
+    # 为了给将要获得的数据提供对应的位置, 先获得网络框架
+    model, weights, biases = build_network_for_mnist(x, keep_prob)
+
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        load_model(model, dict(weights, **biases), './TrainedModels', sess)
+        test_model(model, x, keep_prob,
+                   mnist.test.images, mnist.test.labels, sess)
+
+
+if __name__ == '__main__':
+    run()

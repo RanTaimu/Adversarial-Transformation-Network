@@ -1,0 +1,2 @@
+model_checkpoint_path: "ATN_basic_ae.ckpt"
+all_model_checkpoint_paths: "ATN_basic_ae.ckpt"
