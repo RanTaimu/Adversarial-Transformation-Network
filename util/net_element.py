@@ -4,7 +4,7 @@ import tensorflow as tf
 def weight_variable(shape, name):
     """
     """
-    initializer = tf.truncated_normal(shape, stddev=0.1)
+    initializer = tf.truncated_normal(shape, stddev=0.01)
     return tf.get_variable(initializer=initializer, name=name)
 
 

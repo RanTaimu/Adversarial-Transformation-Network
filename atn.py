@@ -69,7 +69,7 @@ def train():
     attack_target = 8
     alpha = 1.5
     training_epochs = 10
-    batch_size = 256
+    batch_size = 64
 
     model = atn.ATN(images_holder, label_holder, p_keep_holder, rerank_holder)
 
@@ -92,13 +92,13 @@ def train():
                 for i in range(len(r_res)):
                     r_res[i] /= norm_div[i]
 
-                sess.run(model.optimization, feed_dict={
+                _, loss = sess.run(model.optimization, feed_dict={
                     images_holder: batch_xs,
                     p_keep_holder: 1.0,
                     rerank_holder: r_res
                 })
 
-            print('Eopch {0} completed.'.format(epoch+1))
+            print('Eopch {0} completed. loss = {1}'.format(epoch+1, loss))
         print("Optimization Finished!")
 
         model.save(sess, './Models/AE_for_ATN')

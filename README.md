@@ -31,6 +31,6 @@ matplotlib (for result visualizing)
 
   ![result](./result.png)
 
-  Before attack, the accuracy of the target cnn network is **0.9902**, and it becomes **0.4756** after attack.
+  Before attack, the accuracy of the target cnn network is **0.9902**, and it becomes **0.2773** after attack.
 
   The result is not good enough, so **WELCOME CONTRIBUTION !!!**

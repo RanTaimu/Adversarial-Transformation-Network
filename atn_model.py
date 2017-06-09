@@ -43,7 +43,7 @@ class ATN:
             loss,
             var_list=tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
                                        "autoencoder"))
-        return optimizer
+        return optimizer, loss
 
     @lazy_property
     def prediction(self):
